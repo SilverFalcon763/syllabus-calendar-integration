@@ -78,7 +78,30 @@ cd syllabus-calendar-integration
 
 ### 2. Configure Google Cloud OAuth
 
-Place the "credentials.json" file in the ...\syllabus-calendar-integration folder.
+The Google Calendar integration requires a Google Cloud OAuth application.
+
+#### If the existing project is being used
+
+The original project owner must provide the project’s `credentials.json` file to the new team through a secure channel. Do not commit this file to GitHub.
+
+Because the application is published, new team members can authorize their own Google accounts when they connect Google Calendar.
+
+#### If a new Google Cloud project is created
+
+1. Open the Google Cloud Console:
+   https://console.cloud.google.com/
+2. Create a new project.
+3. Open **APIs & Services → Library**.
+4. Search for and enable **Google Calendar API**.
+5. Open **Google Auth Platform → Branding** and configure the application name and support email.
+6. Add the team members as test users.
+7. Go to **Google Auth Platform → Clients** or **APIs & Services → Credentials**.
+8. Create an OAuth client.
+9. Select **Web application** as the application type.
+10. Add this authorized redirect URI:
+
+```text
+http://127.0.0.1:5000/oauth2callback
 
 ### 3. Install dependencies
 

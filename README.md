@@ -126,6 +126,11 @@ The backend should start at:
 http://127.0.0.1:5000
 ```
 
+Than in a new terminal type:
+```text
+open frontend/index.html
+```
+
 ## Google Calendar authorization
 
 1. Open the frontend from ...\syllabus-calendar-integration\frontend\index.html.

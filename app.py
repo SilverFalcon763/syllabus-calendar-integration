@@ -3,6 +3,12 @@ import os
 from flask import Flask, request, jsonify, redirect, session, url_for
 from flask_cors import CORS
 
+# Import the class that calculates the time remaining until an exam
+from src.create_exam_timer import CreateExamTimer
+
+# Import the class that formats and displays the countdown 
+from src.display_exam_times import DisplayExamTimes
+
 from src.exam import Exam
 from src.exam_database import ExamDatabase
 from src.google_calendar_service import GoogleCalendarService
@@ -20,6 +26,11 @@ CORS(app)
 exam_database = ExamDatabase("events.db")
 google_calendar_service = GoogleCalendarService()
 
+# Create an object to calculate the time remaining until an exam
+timer = CreateExamTimer()
+
+# Create an object to format and display the exam countdown
+display = DisplayExamTimes()
 
 @app.route("/")
 def home():
@@ -130,6 +141,41 @@ def get_events():
         for exam in exams
     ])
 
+# Create a route to calculate the exam countdown
+@app.route("/exam-countdown", methods=["POST"])
+def exam_countdown():
+    # Get the exam information sent from the frontend
+    data = request.get_json() or {}
+    # Check if the required information is provided
+    if not data.get("course") or not data.get("title") or not data.get("date"):
+        return jsonify({
+            "error": "course, title, and date are required"
+        }), 400
+
+    try: 
+        # Create an Exam object using the provided information
+        exam = Exam(
+            exam_id=None, 
+            course=data["course"],
+            title=data["title"],
+            date=data["date"],
+        )
+
+        # Calculate the time remaining until the exam
+        countdown = timer.createTimer(exam)
+
+        # Create a message displaying the countdown
+        message = display.displayTimes(countdown)
+
+        # Send the countdown and messge back to the frontend
+        return jsonify({
+            "countdown": countdown,
+            "message": message
+        })
+    
+    # Return an error if the date or data types are invalid 
+    except (ValueError, TypeError) as error: 
+        return jsonify({"error": str(error)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)

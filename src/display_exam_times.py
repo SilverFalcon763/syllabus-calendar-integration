@@ -1,9 +1,12 @@
 class DisplayExamTimes:
-    def__init__(self):
-        self.days = 0
-        self.hours = 0
-        self.minutes = 0
-    
-    def displayTimes(self, total_seconds):
-        # TODO: Convert seconds into days, hours, and minutes
-        pass
+
+    def displayTimes(self, countdown):
+        if countdown is None: 
+            return "Exam has started or passed"
+        
+        return (
+            f"{countdown['days']} days, "
+            f"{countdown['hours']} hours, "
+            f"{countdown['minutes']} minutes, "
+            f"{countdown['seconds']} seconds remaining"
+        )

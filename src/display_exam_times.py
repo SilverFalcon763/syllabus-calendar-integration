@@ -1,8 +1,8 @@
 # Create a class to format and display exam countdown times
 class DisplayExamTimes:
 
-      # Check if the countdown is unavailable because the exam has started or passed
     def displayTimes(self, countdown):
+         # Check if the countdown is unavailable because the exam has started or passed
         if countdown is None: 
             return "Exam has started or passed"
         

@@ -6,9 +6,11 @@ from flask_cors import CORS
 from src.exam import Exam
 from src.exam_database import ExamDatabase
 from src.google_calendar_service import GoogleCalendarService
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 app.secret_key = os.getenv(
     "FLASK_SECRET_KEY",

@@ -1,55 +1,135 @@
-# Import Flask so Pyhton can act as a web server 
-from flask import Flask, request, jsonify
-# SQLite stores information
-import sqlite3
+import os
 
-db = sqlite3.connect("events.db")
+from flask import Flask, request, jsonify, redirect, session, url_for
+from flask_cors import CORS
 
-# Create table with 3 columns
-db.execute("CREATE TABLE IF NOT EXISTS events (course TEXT, title TEXT, date TEXT)")
+from src.exam import Exam
+from src.exam_database import ExamDatabase
+from src.google_calendar_service import GoogleCalendarService
 
-# Save and close changes
-db.commit()
-db.close()
 
 app = Flask(__name__)
-from flask_cors import CORS
+
+app.secret_key = os.getenv(
+    "FLASK_SECRET_KEY",
+    "local-development-key",
+)
+
 CORS(app)
 
+exam_database = ExamDatabase("events.db")
+google_calendar_service = GoogleCalendarService()
 
 
 @app.route("/")
 def home():
     return "Backend is running"
 
-# When frontend sends a new event to /events, save it
+
+@app.route("/authorize")
+def authorize_google_calendar():
+    redirect_uri = url_for(
+        "oauth2callback",
+        _external=True,
+    )
+
+    try:
+        authorization_url, state, code_verifier = (
+            google_calendar_service.get_authorization_url(
+                redirect_uri
+            )
+        )
+    except FileNotFoundError as error:
+        return jsonify({"error": str(error)}), 500
+
+    session["oauth_state"] = state
+    session["oauth_code_verifier"] = code_verifier
+
+    return redirect(authorization_url)
+
+
+@app.route("/oauth2callback")
+def oauth2callback():
+    state = session.pop("oauth_state", None)
+    code_verifier = session.pop(
+        "oauth_code_verifier",
+        None,
+    )
+
+    if not state:
+        return jsonify({
+            "error": "OAuth state is missing or expired"
+        }), 400
+
+    redirect_uri = url_for(
+        "oauth2callback",
+        _external=True,
+    )
+
+    try:
+        google_calendar_service.finish_authorization(
+            authorization_response=request.url,
+            state=state,
+            redirect_uri=redirect_uri,
+            code_verifier=code_verifier,
+        )
+    except Exception as error:
+        return jsonify({
+            "error": f"Google authorization failed: {error}"
+        }), 400
+
+    return (
+        "Google Calendar connected. "
+        "You can return to the syllabus page."
+    )
+
+
 @app.route("/events", methods=["POST"])
 def add_event():
-    data = request.get_json() # read data
+    data = request.get_json() or {}
 
-    db = sqlite3.connect("events.db")
+    required_fields = (
+        "course",
+        "title",
+        "date",
+    )
 
-    db.execute("INSERT INTO events (course, title, date) VALUES (?, ?, ?)", (data["course"], data["title"], data["date"]))               
-               
-    # Save new row and close database
-    db.commit()
-    db.close()
+    if any(not data.get(field) for field in required_fields):
+        return jsonify({
+            "error": "course, title, and date are required"
+        }), 400
 
-    # test
-    return "Event saved"
+    exam = Exam(
+        exam_id=None,
+        course=data["course"],
+        title=data["title"],
+        date=data["date"],
+    )
 
-# Send back data
+    exam_database.save_exam(exam)
+
+    calendar_added = google_calendar_service.add_exam(exam)
+
+    response = exam.to_dict()
+    response["calendar_added"] = calendar_added
+
+    if google_calendar_service.last_event_link:
+        response["calendar_link"] = (
+            google_calendar_service.last_event_link
+        )
+
+    return jsonify(response), 201
+
+
 @app.route("/events", methods=["GET"])
 def get_events():
+    exams = exam_database.get_exams()
 
-    db = sqlite3.connect("events.db")
+    return jsonify([
+        exam.to_dict()
+        for exam in exams
+    ])
 
-    rows = db.execute("SELECT course, title, date FROM events").fetchall()
 
-    db.close()
-
-    events = []
-    for row in rows:
-        events.append({"course": row[0], "title": row[1], "date":row[2]})
-
-    return jsonify(events)
+if __name__ == "__main__":
+    app.run(debug=True)
